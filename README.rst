@@ -13,9 +13,9 @@ This analysis has only two main parameters:
 
 These two parameters are also confirmed by the overlay of two curves.
 
-Data source: Folkhälsomyndigheten [#1]_.
-Milestones: Wikipedia [#2]_.
-Holidays: Edarabia [#3]_.
+Data source: Folkhälsomyndigheten [1]_.
+Milestones: Wikipedia [2]_.
+Holidays: Edarabia [3]_.
 
 
 Results
@@ -34,33 +34,36 @@ Children have more contact with their grandparents when schools are closed.
 The mobility gained by the general population while schools are closed
 more than outweighs the reduced spread between children.
 Fortunately Sweden never blundered on that one,
-but you can clearly see from the plots that during school vacations
-Covid spreads much faster than at other times.
+but you can clearly see from the plots that during the Easter school vacations
+Covid spread much faster than at other times.
+
+It also emerges that the number of infections as determined by testing
+has nothing to do with the actual progression of the pandemic.
+While the other two curves agree pretty well, the test curve is way off.
 
 R is calculated in the most simple way and is informal only.
 There are way too many different ways to calculate R to make R a meaningful number. [JING2011]_
 
-.. image: https://raw.githubusercontent.com/MarcelloPerathoner/covid-19/master/docs/sweden.png
+.. image:: https://raw.githubusercontent.com/MarcelloPerathoner/covid-19/master/docs/sweden.png
    :width: 100%
    :align: center
 
 Big image: https://raw.githubusercontent.com/MarcelloPerathoner/covid-19/master/docs/sweden.png
 
 
-.. rubric:: Footnotes
+Footnotes / Bibliography
+------------------------
 
-.. [#1] Folkhälsomyndigheten Covid dashboard.
-        https://experience.arcgis.com/experience/09f821667ce64bf7be6f9f87457ed9aa
 
-.. [ICUREG2020] https://www.icuregswe.org/en/data--results/covid-19-in-swedish-intensive-care/
-
-.. [WORLDO2020] https://www.worldometers.info/coronavirus/coronavirus-death-rate/
-
-.. [#2] https://en.wikipedia.org/wiki/COVID-19_pandemic_in_Sweden#Measures
-
-.. [#3] https://www.edarabia.com/school-holidays-sweden/
-
+.. [1] Folkhälsomyndigheten Covid dashboard.
+       https://experience.arcgis.com/experience/09f821667ce64bf7be6f9f87457ed9aa
+.. [2] Wikipedia https://en.wikipedia.org/wiki/COVID-19_pandemic_in_Sweden#Measures
+.. [3] Edarabia https://www.edarabia.com/school-holidays-sweden/
+.. [ICUREG2020] The Swedish Intensive Care Registry (SIR)
+                https://www.icuregswe.org/en/data--results/covid-19-in-swedish-intensive-care/
+.. [WORLDO2020] Worldometers: Coronavirus (COVID-19) Mortality Rate
+                https://www.worldometers.info/coronavirus/coronavirus-death-rate/
 .. [JING2011] Jing Li, Daniel Blakeley, and Robert J. Smith?.
-             The Failure of R0.
-             2011.  Computational and Mathematical Methods in Medicine.
-             https://www.hindawi.com/journals/cmmm/2011/527610/
+              The Failure of R0.
+              2011.  Computational and Mathematical Methods in Medicine.
+              https://www.hindawi.com/journals/cmmm/2011/527610/
