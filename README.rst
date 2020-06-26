@@ -3,9 +3,16 @@
 Covid-19 Pandemic in Sweden
 ===========================
 
-A data analysis with Python pandas.
+A data analysis of the Covid-19 pandemic in Sweden with Python and Pandas.
 
-This analysis has only two main parameters:
+Method: plot the hospitalization and death rate along with
+Public Health Agency responses shifted ahead in time.
+Use eyeballing to learn the facts.
+Fit an exponential curve to the cases following the peak
+of the pandemic to estimate the current reproduction rate R.
+
+The only two parameters used in this analysis are the time shifts applied to the
+Public Health Agency responses:
 
 - the mean number of days between infection and ICU admission: 11 days [ICUREG2020]_,
 
@@ -14,8 +21,8 @@ This analysis has only two main parameters:
 These two parameters are also confirmed by the overlay of two curves.
 
 Data source: Folkhälsomyndigheten [1]_.
-Milestones: Wikipedia [2]_.
-Holidays: Edarabia [3]_.
+Response milestones: Wikipedia [2]_.
+School Holidays: Edarabia [3]_.
 
 
 Results
@@ -48,7 +55,7 @@ There are way too many different ways to calculate R to make R a meaningful numb
    :width: 100%
    :align: center
 
-Big image: https://raw.githubusercontent.com/MarcelloPerathoner/covid-19/master/docs/sweden.png
+The big picture: https://raw.githubusercontent.com/MarcelloPerathoner/covid-19/master/docs/sweden.png
 
 
 Footnotes / Bibliography

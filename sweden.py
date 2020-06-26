@@ -2,16 +2,25 @@
 
 import collections
 import datetime
+import math
 import operator
 
 import numpy as np
 import pandas as pd
 import requests
 import scipy.optimize
+import scipy.stats
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.dates as pltdates
 from matplotlib.offsetbox import AnchoredText
+
+PLOT_COLUMNS = 2
+DECONVOLVE = False
+if DECONVOLVE:
+    import deconvolution
+    PLOT_COLUMNS = 3
+
 
 ################################################################################
 # tweakable parameters
@@ -23,6 +32,7 @@ from matplotlib.offsetbox import AnchoredText
 # color: plot color
 # json: name of attribute in json data
 # plot: no. of plot in axes(2, 2)
+# roll: smooth data by rolling average over X days
 # offset: no. of days to shift the milestones
 
 PLOTS = collections.OrderedDict (
@@ -32,6 +42,7 @@ PLOTS = collections.OrderedDict (
         'color'  : '#0000ff',
         'json'   : 'Totalt_antal_fall',
         'plot'   : 3,
+        'roll'   : 7,
         'offset' : 7, # days from infection to positive test, mostly guessed
                       # Reporting delay estimated to be 7-8 days (See: Table 1):
                       # https://www.stablab.stat.uni-muenchen.de/_assets/docs/nowcasting_covid19_bavaria.pdf
@@ -42,8 +53,9 @@ PLOTS = collections.OrderedDict (
         'color'  : '#ff0000',
         'json'   : 'Antal_intensivvardade',
         'plot'   : 1,
+        'roll'   : 7,
         'offset' : 11, # days from infection to icu admission,
-                       # "Days from onset to ICU care: 11,1 (0 - 53,7) (min-max)"
+                       # "Days from onset to ICU care: 11,2 (0 - 53,7) (min-max)"
                        # -- https://www.icuregswe.org/en/data--results/covid-19-in-swedish-intensive-care/
     },
     died = {
@@ -52,7 +64,8 @@ PLOTS = collections.OrderedDict (
         'color'  : '#000000',
         'json'   : 'Antal_avlidna',
         'plot'   : 2,
-        'offset' : 17, # days from infection to death, calculated: 11.5 + 5.1
+        'roll'   : 7,
+        'offset' : 16, # days from infection to death, calculated: 11.5 + 5.1
                        # "symptom to death 11.5 days"
                        # -- https://www.worldometers.info/coronavirus/coronavirus-death-rate/
                        # also confirmed by curve overlay
@@ -91,7 +104,28 @@ MILESTONES = (
     ( pd.to_datetime ('2020-04-18'), 'start of easter school break in central sweden' ),
     ( pd.to_datetime ('2020-04-23'), 'end of easter school break in central sweden' ),
 
-    ( pd.to_datetime ('2020-05-01'), 'may first' ),
+    ( pd.to_datetime ('2020-05-01'), 'start may 1st / valborg' ),
+    ( pd.to_datetime ('2020-05-04'), 'end may 1st' ),
+
+    ( pd.to_datetime ('2020-05-09'), 'europe day' ),
+
+    ( pd.to_datetime ('2020-05-21'), 'start ascension day' ),
+    ( pd.to_datetime ('2020-05-25'), 'end ascension day' ),
+
+    ( pd.to_datetime ('2020-05-30'), 'start whitsun holiday' ),
+    ( pd.to_datetime ('2020-06-02'), 'end whitsun holiday' ),
+
+    ( pd.to_datetime ('2020-06-06'), 'national day' ),
+    ( pd.to_datetime ('2020-06-07'), 'mothers day' ),
+
+    ( pd.to_datetime ('2020-06-10'), 'start of summer school break' ),
+
+    ( pd.to_datetime ('2020-06-26'), 'midsommar' ),
+
+    ( pd.to_datetime ('2020-08-19'), 'end of summer school break' ),
+
+    ( pd.to_datetime ('2020-10-24'), 'start autumn school break in stockholm' ),
+    ( pd.to_datetime ('2020-11-02'), 'end autumn school break in stockholm' ),
 )
 
 # Parameters used to estimate R
@@ -112,7 +146,6 @@ HUMP_DAY        = '2020-03-24' # fit curve starting here
 
 START_DATE      = '2020-03-15' # start date for plots
 UNSTABLE_DAYS   = 10           # ignore the last X days of data because it is unstable
-ROLL_DAYS       = 7            # smooth data by rolling average over X days
 
 # end tweakable parameters
 ################################################################################
@@ -162,10 +195,21 @@ df = pd.DataFrame (
 
 end_date = df.index[-1] - pd.Timedelta (UNSTABLE_DAYS, 'days')
 
-for col in PLOTS:
-    df[(col, 'roll')]     = df[(col, 'raw')].rolling (ROLL_DAYS, center = True).mean ()
+
+for col, data in PLOTS.items ():
+    df[(col, 'roll')]     = df[(col, 'raw')].rolling (data['roll'], center = True).mean ()
     df[(col, 'stable')]   = df.loc[:end_date, (col, 'roll')]
     df[(col, 'unstable')] = df.loc[end_date:, (col, 'roll')]
+
+if DECONVOLVE and 0:
+    signal = df[(col, 'roll')].fillna (0).to_numpy ().astype (np.float)
+    max_signal = signal.max ()
+    signal /= max_signal
+    deconv, psf = deconvolution.richardson_lucy (signal, clip = False)
+    deconv *= max_signal
+    df[(col, 'deconvolved')] = deconv
+    df[(col, 'psf')] = psf
+
 
 def f (x, a, b):
     """ The exponential curve to fit. """
@@ -211,7 +255,7 @@ def set_xticks (ax):
 def plot (field, data):
     """ Plot one curve and annotate it. """
 
-    ax = plt.subplot (2, 2, data['plot'])
+    ax = plt.subplot (2, PLOT_COLUMNS, data['plot'])
     ax.set_title (data['title'], fontsize = 16)
 
     offset = pd.Timedelta (data['offset'], 'days')
@@ -228,7 +272,7 @@ def plot (field, data):
     )
 
     params = [
-        ('stable',   'ff', '-',  data['label'] + ' (7 day rolling avg.)'),
+        ('stable',   'ff', '-',  data['label'] + ' (%d day rolling avg.)' % data['roll']),
         ('unstable', 'ff', ':',  ''),
         ('fit' ,     'ff', '--', 'Fit: %5.1f e^(%5.4f x)\nEstimated R: %5.3f' % (
             popt[0],
@@ -236,7 +280,9 @@ def plot (field, data):
             # See: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1766383/
             # Section: (c) Delta distributions
             np.exp (popt[1] * MEAN_GENERATION_INTERVAL)
-        ))
+        )),
+        #('deconvolved', 'ff', ':',  ''),
+        #('psf',         'ff', ':',  ''),
     ]
     for level2, alpha, style, labell in params:
         ax.plot (
@@ -267,7 +313,7 @@ used for least squares curve fitting.""".strip () % (offset.days, UNSTABLE_DAYS,
 # start plotting #
 ##################
 
-fig, axs = plt.subplots (2, 2)
+fig, axs = plt.subplots (2, PLOT_COLUMNS)
 fig.set_size_inches (24, 24)
 
 fig.suptitle ('Covid-19 Pandemic in Sweden\n(Last updated on %s. Data source: Folkhälsomyndigheten)'
@@ -281,13 +327,21 @@ for k, v in PLOTS.items ():
 
 # the special plot: overlay of all three curves
 
-ax = plt.subplot (2, 2, 4)
+ax = plt.subplot (2, PLOT_COLUMNS, 4)
 ax.set_title ('Curve Overlay', fontsize = 16)
+plots = [ax]
+fields = 'stable', 'unstable'
+
+if DECONVOLVE:
+    ax2 = plt.subplot (2, PLOT_COLUMNS, 5)
+    ax2.set_title ('Deconvolved Curve Overlay', fontsize = 16)
+    plots.append (ax2)
+    fields.append ('deconvolved')
 
 for field, data in PLOTS.items ():
     # normalize curve maxima to 1 and offset curves
     col_max = df[(field, 'roll')].max ()
-    for level2 in 'stable', 'unstable':
+    for level2 in fields:
         col = (field, level2)
         df.loc[:, col] = df[col] / col_max
         df.loc[:, col] = df[col].shift (-data['offset'])
@@ -304,21 +358,47 @@ for field, data in PLOTS.items ():
         color = data['color'],
         linestyle = ':'
     )
+    if DECONVOLVE and field != 'pos':
+        ax2.plot (
+            df.index,
+            df[(field, 'deconvolved')],
+            color = data['color'],
+            linestyle = '-',
+            label = data['label'] + ' (offset by %d days)' % -data['offset']
+        )
 
-ax.legend (loc = 'upper right')
-ax.set_ylim (0, 1.2)
-end_date = df.index[-1] - pd.Timedelta (PLOTS['pos']['offset'], 'days')
-ax.set_xlim (pd.to_datetime ('2020-03-01'), end_date)
-ax.set_yticks ([], minor = True)
-ax.set_yticks ([], minor = False)
+    for a in plots:
+        a.legend (loc = 'upper right')
+        a.set_ylim (0, 1.2)
+        end_date = df.index[-1] - pd.Timedelta (PLOTS['pos']['offset'], 'days')
+        a.set_xlim (pd.to_datetime ('2020-03-01'), end_date)
+        a.set_yticks ([], minor = True)
+        a.set_yticks ([], minor = False)
 
-set_xticks (ax)
-annotate_milestones (ax, pd.Timedelta (0, 'days'))
+        set_xticks (a)
 
-note = AnchoredText ("""
+        annotate_milestones (a, pd.Timedelta (0, 'days'))
+
+    note = AnchoredText ("""
 Curves are peak-normalized and offset
 by the amount indicated in the legend.""".strip (), loc = 'upper left')
-ax.add_artist (note)
+    ax.add_artist (note)
+
+    # plot recovered point spread functions
+
+if DECONVOLVE:
+    ax = plt.subplot (2, PLOT_COLUMNS, 6)
+    ax.set_title ('Recovered PSFs', fontsize = 16)
+
+    for field, data in PLOTS.items ():
+        if field != 'pos':
+            ax.plot (
+                df.index,
+                df[(field, 'psf')],
+                color = data['color'],
+                linestyle = '-'
+            )
+
 
 # done
 plt.savefig ('docs/sweden.png')
